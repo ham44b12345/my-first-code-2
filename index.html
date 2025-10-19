@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitHub Issues掲示板ログ</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f5f7;
+      --fg: #1f2933;
+      --accent: #2563eb;
+      --muted: #64748b;
+      --card-bg: #ffffff;
+      --border: rgba(15, 23, 42, 0.12);
+      font-size: 16px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --fg: #f8fafc;
+        --muted: #cbd5f5;
+        --card-bg: #111c33;
+        --border: rgba(148, 163, 184, 0.25);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .frame {
+      width: min(960px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      padding: 1.5rem clamp(1rem, 3vw, 2rem);
+    }
+
+    header {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    header h1 {
+      margin: 0;
+      font-weight: 700;
+      font-size: clamp(1.6rem, 4vw, 2rem);
+      line-height: 1.2;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .actions a,
+    .actions button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      padding: 0.65rem 1.4rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .actions button {
+      background: transparent;
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .actions a:hover,
+    .actions a:focus-visible,
+    .actions button:hover,
+    .actions button:focus-visible {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 12px rgba(37, 99, 235, 0.18);
+      outline: none;
+    }
+
+    .notice {
+      border-radius: 18px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 1.15rem 1.25rem;
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    .notice strong {
+      font-weight: 600;
+    }
+
+    #status {
+      border-radius: 18px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 1rem 1.25rem;
+      font-size: 0.95rem;
+      display: none;
+    }
+
+    #status.is-visible {
+      display: block;
+    }
+
+    #issues {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .issue-card {
+      background: var(--card-bg);
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      padding: 1rem 1.15rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .issue-card:hover,
+    .issue-card:focus-within {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12);
+    }
+
+    .issue-card h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      line-height: 1.45;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .issue-card h2 a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .issue-card h2 a:hover,
+    .issue-card h2 a:focus-visible {
+      text-decoration: underline;
+      outline: none;
+    }
+
+    .issue-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      align-items: center;
+    }
+
+    .issue-body {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: var(--fg);
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: pre-line;
+    }
+
+    .labels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      color: #fff;
+    }
+
+    footer {
+      margin-top: auto;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding-bottom: 0.5rem;
+    }
+
+    @media screen and (max-width: 640px) {
+      .issue-card {
+        padding: 1rem;
+      }
+
+      .issue-card h2 {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body data-owner="ham44b12345">
+  <div class="frame">
+    <header>
+      <h1>GitHub Issues 掲示板ログ</h1>
+      <p>
+        このページは GitHub リポジトリ <code id="repoName">[オーナー]/my-first-code-2</code> の Issue を掲示板ログとして一覧表示します。投稿は GitHub の Issue 作成画面で行ってください。
+      </p>
+      <div class="actions">
+        <a id="newIssueLink" href="https://github.com" target="_blank" rel="noopener">Issue を投稿する</a>
+        <button id="reloadButton" type="button">最新の投稿を読み込む</button>
+      </div>
+    </header>
+
+    <div class="notice">
+      <strong>Google Sites への埋め込み:</strong>
+      <ol style="padding-left: 1.1rem; margin: 0.4rem 0 0;">
+        <li>Google Sites の「埋め込み」パネルでこのページの URL を指定します。</li>
+        <li>幅は 100%、高さは 800px 程度を目安に調整してください。</li>
+        <li>Issue は公開リポジトリの場合はログイン不要で閲覧できます。</li>
+      </ol>
+    </div>
+
+    <div id="status">読み込み中...</div>
+    <ul id="issues" aria-live="polite" aria-busy="true"></ul>
+
+    <footer>
+      Powered by GitHub Issues · このビューは GitHub REST API を利用しています
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      const repoName = "my-first-code-2";
+      const statusEl = document.getElementById("status");
+      const listEl = document.getElementById("issues");
+      const newIssueLink = document.getElementById("newIssueLink");
+      const repoNameEl = document.getElementById("repoName");
+      const reloadButton = document.getElementById("reloadButton");
+
+      const stripHtml = (html) => {
+        const tmp = document.createElement("div");
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || "";
+      };
+
+      const formatDate = (value) => {
+        if (!value) return "";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return new Intl.DateTimeFormat("ja-JP", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        }).format(date);
+      };
+
+      const detectOwner = () => {
+        const dataOwner = document.body.dataset.owner?.trim();
+        if (dataOwner) return dataOwner;
+
+        const paramsOwner = new URLSearchParams(window.location.search).get("owner");
+        if (paramsOwner) return paramsOwner;
+
+        const hostname = window.location.hostname;
+        if (hostname.endsWith(".github.io")) {
+          return hostname.replace(".github.io", "");
+        }
+
+        return "";
+      };
+
+      const owner = detectOwner();
+
+      const updateRepoLabel = () => {
+        if (owner) {
+          repoNameEl.textContent = `${owner}/${repoName}`;
+        } else {
+          repoNameEl.textContent = "[オーナー名を設定してください]/" + repoName;
+        }
+      };
+
+      const updateLinks = () => {
+        if (!owner) {
+          newIssueLink.href = "https://github.com";
+          return;
+        }
+
+        const base = `https://github.com/${owner}/${repoName}`;
+        newIssueLink.href = `${base}/issues/new`;
+      };
+
+      const setStatus = (message, isVisible = true) => {
+        statusEl.textContent = message;
+        statusEl.classList.toggle("is-visible", isVisible);
+        listEl.setAttribute("aria-busy", String(isVisible));
+      };
+
+      const renderIssues = (issues) => {
+        listEl.innerHTML = "";
+
+        if (issues.length === 0) {
+          const empty = document.createElement("li");
+          empty.className = "issue-card";
+          empty.innerHTML = "<p>まだ投稿がありません。Issue を作成して最初の投稿をしてみましょう！</p>";
+          listEl.appendChild(empty);
+          return;
+        }
+
+        issues.forEach((issue) => {
+          const item = document.createElement("li");
+          item.className = "issue-card";
+
+          const title = document.createElement("h2");
+          const titleLink = document.createElement("a");
+          titleLink.href = issue.html_url;
+          titleLink.target = "_blank";
+          titleLink.rel = "noopener";
+          titleLink.textContent = `#${issue.number} ${issue.title}`;
+          title.appendChild(titleLink);
+
+          const meta = document.createElement("div");
+          meta.className = "issue-meta";
+          meta.innerHTML = `
+            <span>投稿者: ${issue.user?.login ?? "Unknown"}</span>
+            <span>投稿日: ${formatDate(issue.created_at)}</span>
+            ${issue.comments ? `<span>コメント: ${issue.comments}</span>` : ""}
+          `;
+
+          const labelsContainer = document.createElement("div");
+          labelsContainer.className = "labels";
+          issue.labels?.forEach((label) => {
+            const pill = document.createElement("span");
+            pill.className = "label";
+            pill.textContent = label.name;
+            pill.style.backgroundColor = label.color ? `#${label.color}` : "var(--accent)";
+            labelsContainer.appendChild(pill);
+          });
+
+          const body = document.createElement("div");
+          body.className = "issue-body";
+          body.textContent = stripHtml(issue.body ?? "").substring(0, 500);
+
+          item.appendChild(title);
+          item.appendChild(meta);
+          if (labelsContainer.childElementCount > 0) {
+            item.appendChild(labelsContainer);
+          }
+          if (body.textContent) {
+            item.appendChild(body);
+          }
+
+          listEl.appendChild(item);
+        });
+      };
+
+      const fetchIssues = async () => {
+        if (!owner) {
+          setStatus("GitHub オーナー名を設定してください。URL に ?owner=アカウント名 を指定するか、body の data-owner 属性を設定します。");
+          return;
+        }
+
+        setStatus("読み込み中...");
+        const endpoint = `https://api.github.com/repos/${owner}/${repoName}/issues?state=all&per_page=30&sort=created&direction=desc`;
+
+        try {
+          const response = await fetch(endpoint, {
+            headers: {
+              "Accept": "application/vnd.github+json"
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error(`GitHub API エラー: ${response.status} ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          const issues = Array.isArray(data) ? data.filter((item) => !item.pull_request) : [];
+          renderIssues(issues);
+          setStatus(`最新 ${issues.length} 件を表示中`, false);
+        } catch (error) {
+          console.error(error);
+          setStatus("Issue を取得できませんでした。時間をおいて再読み込みしてください。");
+        }
+      };
+
+      reloadButton.addEventListener("click", fetchIssues);
+
+      updateRepoLabel();
+      updateLinks();
+      fetchIssues();
+    })();
+  </script>
+</body>
+</html>
